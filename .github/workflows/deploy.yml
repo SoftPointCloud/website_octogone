@@ -139,13 +139,44 @@ jobs:
             exit 0
           fi
 
+          echo "Checking reachability for ${FTP_HOST}:${FTP_PORT}"
+          echo "Resolved IPv4 addresses:"
+          getent ahostsv4 "$FTP_HOST" || true
+
           if python - <<PY
           import socket
+          import sys
+
           host = "${{ steps.resolve.outputs.ftp_host }}"
           port = int("${{ steps.resolve.outputs.ftp_port }}")
-          sock = socket.create_connection((host, port), timeout=8)
-          sock.close()
-          print(f"Reachable: {host}:{port}")
+
+          try:
+              infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+          except Exception as err:
+              print(f"DNS resolution failed for {host}: {err}")
+              sys.exit(1)
+
+          seen = set()
+          errors = []
+          for family, socktype, proto, _canonname, sockaddr in infos:
+              ip = sockaddr[0]
+              if ip in seen:
+                  continue
+              seen.add(ip)
+              try:
+                  sock = socket.socket(family, socktype, proto)
+                  sock.settimeout(8)
+                  sock.connect(sockaddr)
+                  sock.close()
+                  print(f"Reachable: {host} ({ip}):{port}")
+                  sys.exit(0)
+              except Exception as err:
+                  errors.append(f"{ip}:{port} -> {err}")
+
+          print("All connection attempts failed:")
+          for item in errors:
+              print(f" - {item}")
+          sys.exit(1)
           PY
           then
             echo "can_deploy=true" >> "$GITHUB_OUTPUT"
