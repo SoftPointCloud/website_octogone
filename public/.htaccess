@@ -1,0 +1,38 @@
+RewriteEngine On
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+</IfModule>
+
+# Canonicalize host and force HTTPS
+RewriteCond %{HTTPS} !=on [OR]
+RewriteCond %{HTTP_HOST} !^octogonehotels\.com$ [NC]
+RewriteRule ^ https://octogonehotels.com%{REQUEST_URI} [R=301,L]
+
+# Legacy URLs from old site sitemap (octogonehotels.com) → homepage
+RewriteRule ^index\.html$ / [R=301,L]
+RewriteRule ^index-5\.php$ / [R=301,L]
+RewriteRule ^indexf\.php$ / [R=301,L]
+RewriteRule ^indexf\.html$ / [R=301,L]
+RewriteRule ^index\.php$ / [R=301,L]
+RewriteRule ^Marrakech\ RSS\.html$ / [R=301,L]
+RewriteRule ^Marrakech\ Accomodations\.html$ / [R=301,L]
+RewriteRule ^Marrakech\ Press\.html$ / [R=301,L]
+RewriteRule ^Marrakech\ Partners\ Affiliates\.html$ / [R=301,L]
+RewriteRule ^Marrakech\ Related\ Links\.html$ / [R=301,L]
+
+# Legacy nav-style paths from previous site
+RewriteRule ^[Mm]anagement/?$ / [R=301,L]
+RewriteRule ^[Hh]otels/?$ / [R=301,L]
+RewriteRule ^[Rr]estaurants/?$ / [R=301,L]
+RewriteRule ^[Ss]pas/?$ / [R=301,L]
+RewriteRule ^[Cc]ontacts/?$ / [R=301,L]
+
+# Redirect any non-file, non-directory path to homepage
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^.*$ / [R=301,L]

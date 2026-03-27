@@ -21,18 +21,16 @@ export default function Nav({ current, setCurrent }) {
     };
   }, [menuOpen]);
 
-  // Close menu on page change
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [current]);
-
   return (
     <>
       <nav className={`nav ${scrolled ? "scrolled" : ""}`}>
         <div className="nav-inner">
           <div
             style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}
-            onClick={() => setCurrent("Home")}
+            onClick={() => {
+              setMenuOpen(false);
+              setCurrent("Home");
+            }}
           >
             <LogoIcon size={scrolled ? 36 : 42} />
             <div>
@@ -112,7 +110,10 @@ export default function Nav({ current, setCurrent }) {
           {NAV_LINKS.map((l) => (
             <button
               key={l}
-              onClick={() => setCurrent(l)}
+              onClick={() => {
+                setMenuOpen(false);
+                setCurrent(l);
+              }}
               className={`mobile-menu-link ${current === l ? "active" : ""}`}
             >
               {l}

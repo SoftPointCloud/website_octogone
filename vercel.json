@@ -1,0 +1,24 @@
+{
+  "redirects": [
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/index-5.php", "destination": "/", "permanent": true },
+    { "source": "/Marrakech%20RSS.html", "destination": "/", "permanent": true },
+    { "source": "/Marrakech%20Accomodations.html", "destination": "/", "permanent": true },
+    { "source": "/Marrakech%20Press.html", "destination": "/", "permanent": true },
+    { "source": "/Marrakech%20Partners%20Affiliates.html", "destination": "/", "permanent": true },
+    { "source": "/Marrakech%20Related%20Links.html", "destination": "/", "permanent": true },
+    { "source": "/management", "destination": "/", "permanent": true },
+    { "source": "/Management", "destination": "/", "permanent": true },
+    { "source": "/hotels", "destination": "/", "permanent": true },
+    { "source": "/Hotels", "destination": "/", "permanent": true },
+    { "source": "/restaurants", "destination": "/", "permanent": true },
+    { "source": "/Restaurants", "destination": "/", "permanent": true },
+    { "source": "/spas", "destination": "/", "permanent": true },
+    { "source": "/Spas", "destination": "/", "permanent": true },
+    { "source": "/contacts", "destination": "/", "permanent": true },
+    { "source": "/Contacts", "destination": "/", "permanent": true },
+    { "source": "/indexf.php", "destination": "/", "permanent": true },
+    { "source": "/indexf.html", "destination": "/", "permanent": true },
+    { "source": "/index.php", "destination": "/", "permanent": true }
+  ]
+}

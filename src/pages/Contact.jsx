@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import LogoIcon from "../components/LogoIcon";
 import Button from "../components/Button";
 import COLORS from "../data/colors";
@@ -39,6 +39,18 @@ export default function Contact() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [pageLoadTime] = useState(() => Date.now());
+
+  const isSubmittable = useMemo(() => {
+    if (sending) return false;
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const msg = form.message.trim();
+    if (!name || !email || !msg) return false;
+    if (!isValidEmail(email)) return false;
+    if (msg.length < MIN_MESSAGE_LEN || msg.length > MAX_MESSAGE_LEN) return false;
+    if (countUrls(msg) > MAX_URLS_IN_MESSAGE) return false;
+    return true;
+  }, [form.name, form.email, form.message, sending]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -255,7 +267,6 @@ export default function Contact() {
               </div>
             ) : (
               <form
-                noValidate
                 onSubmit={handleSubmit}
                 style={{ display: "flex", flexDirection: "column", gap: 16, position: "relative" }}
               >
@@ -279,6 +290,8 @@ export default function Contact() {
                       name="name"
                       autoComplete="name"
                       placeholder="Full Name *"
+                      required
+                      aria-required="true"
                       value={form.name}
                       onChange={update("name")}
                     />
@@ -291,6 +304,8 @@ export default function Contact() {
                       placeholder="Email *"
                       type="email"
                       inputMode="email"
+                      required
+                      aria-required="true"
                       value={form.email}
                       onChange={update("email")}
                     />
@@ -311,6 +326,9 @@ export default function Contact() {
                   name="message"
                   placeholder="Your Message *"
                   rows={6}
+                  required
+                  aria-required="true"
+                  minLength={MIN_MESSAGE_LEN}
                   maxLength={MAX_MESSAGE_LEN}
                   value={form.message}
                   onChange={update("message")}
@@ -334,7 +352,7 @@ export default function Contact() {
                 <Button
                   variant="filled"
                   type="submit"
-                  disabled={sending}
+                  disabled={!isSubmittable}
                   style={{ alignSelf: "flex-start" }}
                 >
                   {sending ? "Sending…" : "Send Message"}
