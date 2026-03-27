@@ -26,59 +26,160 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Check VPN/FTP reachability
+      - name: Resolve deployment settings
+        id: resolve
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_PORT_SECRET: ${{ secrets.FTP_PORT }}
+          FTP_PROTOCOL_SECRET: ${{ secrets.FTP_PROTOCOL }}
+          WG_PRIVATE_KEY: ${{ secrets.WG_PRIVATE_KEY }}
+          WG_ADDRESS: ${{ secrets.WG_ADDRESS }}
+          WG_DNS: ${{ secrets.WG_DNS }}
+          WG_PEER_PUBLIC_KEY: ${{ secrets.WG_PEER_PUBLIC_KEY }}
+          WG_PRESHARED_KEY: ${{ secrets.WG_PRESHARED_KEY }}
+          WG_ENDPOINT: ${{ secrets.WG_ENDPOINT }}
+          WG_ALLOWED_IPS: ${{ secrets.WG_ALLOWED_IPS }}
+        run: |
+          set -euo pipefail
+
+          ftp_port="${FTP_PORT_SECRET:-21}"
+          ftp_protocol="${FTP_PROTOCOL_SECRET:-ftps}"
+
+          echo "ftp_host=${FTP_SERVER}" >> "$GITHUB_OUTPUT"
+          echo "ftp_port=${ftp_port}" >> "$GITHUB_OUTPUT"
+          echo "ftp_protocol=${ftp_protocol}" >> "$GITHUB_OUTPUT"
+
+          can_start=true
+          skip_reason=""
+
+          if [ -z "${FTP_SERVER}" ]; then
+            can_start=false
+            skip_reason="FTP_SERVER secret is missing."
+          fi
+
+          use_wg=false
+          if [ -n "${WG_PRIVATE_KEY}${WG_ADDRESS}${WG_PEER_PUBLIC_KEY}${WG_ENDPOINT}${WG_ALLOWED_IPS}" ]; then
+            use_wg=true
+            missing=()
+            [ -z "${WG_PRIVATE_KEY}" ] && missing+=("WG_PRIVATE_KEY")
+            [ -z "${WG_ADDRESS}" ] && missing+=("WG_ADDRESS")
+            [ -z "${WG_PEER_PUBLIC_KEY}" ] && missing+=("WG_PEER_PUBLIC_KEY")
+            [ -z "${WG_ENDPOINT}" ] && missing+=("WG_ENDPOINT")
+            [ -z "${WG_ALLOWED_IPS}" ] && missing+=("WG_ALLOWED_IPS")
+            if [ ${#missing[@]} -gt 0 ]; then
+              can_start=false
+              skip_reason="Incomplete WireGuard secrets: ${missing[*]}"
+            fi
+          fi
+
+          echo "use_wg=${use_wg}" >> "$GITHUB_OUTPUT"
+          echo "can_start=${can_start}" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=${skip_reason}" >> "$GITHUB_OUTPUT"
+
+      - name: Install WireGuard tools (optional)
+        if: steps.resolve.outputs.can_start == 'true' && steps.resolve.outputs.use_wg == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard-tools
+
+      - name: Connect WireGuard VPN (optional)
+        if: steps.resolve.outputs.can_start == 'true' && steps.resolve.outputs.use_wg == 'true'
+        shell: bash
+        env:
+          WG_PRIVATE_KEY: ${{ secrets.WG_PRIVATE_KEY }}
+          WG_ADDRESS: ${{ secrets.WG_ADDRESS }}
+          WG_DNS: ${{ secrets.WG_DNS }}
+          WG_PEER_PUBLIC_KEY: ${{ secrets.WG_PEER_PUBLIC_KEY }}
+          WG_PRESHARED_KEY: ${{ secrets.WG_PRESHARED_KEY }}
+          WG_ENDPOINT: ${{ secrets.WG_ENDPOINT }}
+          WG_ALLOWED_IPS: ${{ secrets.WG_ALLOWED_IPS }}
+        run: |
+          set -euo pipefail
+
+          dns_line=""
+          if [ -n "${WG_DNS}" ]; then
+            dns_line="DNS = ${WG_DNS}"
+          fi
+
+          psk_line=""
+          if [ -n "${WG_PRESHARED_KEY}" ]; then
+            psk_line="PresharedKey = ${WG_PRESHARED_KEY}"
+          fi
+
+          cat <<EOF | sudo tee /etc/wireguard/wg0.conf > /dev/null
+          [Interface]
+          PrivateKey = ${WG_PRIVATE_KEY}
+          Address = ${WG_ADDRESS}
+          ${dns_line}
+
+          [Peer]
+          PublicKey = ${WG_PEER_PUBLIC_KEY}
+          ${psk_line}
+          Endpoint = ${WG_ENDPOINT}
+          AllowedIPs = ${WG_ALLOWED_IPS}
+          PersistentKeepalive = 25
+          EOF
+
+          sudo chmod 600 /etc/wireguard/wg0.conf
+          sudo wg-quick up wg0
+          sudo wg show wg0
+
+      - name: Check FTP reachability
         id: precheck
+        if: steps.resolve.outputs.can_start == 'true'
         shell: bash
         run: |
-          FTP_HOST="${{ secrets.FTP_SERVER }}"
-          FTP_PORT="${{ secrets.FTP_PORT != '' && secrets.FTP_PORT || 21 }}"
+          FTP_HOST="${{ steps.resolve.outputs.ftp_host }}"
+          FTP_PORT="${{ steps.resolve.outputs.ftp_port }}"
 
           if [ -z "$FTP_HOST" ]; then
-            echo "FTP_SERVER secret is missing. Skipping deploy."
             echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=FTP_SERVER secret is missing." >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if python - <<PY
           import socket
-          host = "${FTP_HOST}"
-          port = int("${FTP_PORT}")
+          host = "${{ steps.resolve.outputs.ftp_host }}"
+          port = int("${{ steps.resolve.outputs.ftp_port }}")
           sock = socket.create_connection((host, port), timeout=8)
           sock.close()
           print(f"Reachable: {host}:{port}")
           PY
           then
             echo "can_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=" >> "$GITHUB_OUTPUT"
           else
-            echo "VPN/FTP is not reachable from runner. Skipping deploy."
             echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=VPN/FTP is not reachable from runner." >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Node.js
-        if: steps.precheck.outputs.can_deploy == 'true'
+        if: steps.resolve.outputs.can_start == 'true' && steps.precheck.outputs.can_deploy == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies
-        if: steps.precheck.outputs.can_deploy == 'true'
+        if: steps.resolve.outputs.can_start == 'true' && steps.precheck.outputs.can_deploy == 'true'
         run: npm ci
 
       - name: Build Vite production bundle
-        if: steps.precheck.outputs.can_deploy == 'true'
+        if: steps.resolve.outputs.can_start == 'true' && steps.precheck.outputs.can_deploy == 'true'
         run: npm run build
 
       - name: Deploy dist to hosting
-        if: steps.precheck.outputs.can_deploy == 'true'
+        if: steps.resolve.outputs.can_start == 'true' && steps.precheck.outputs.can_deploy == 'true'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server: ${{ steps.resolve.outputs.ftp_host }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          protocol: ${{ secrets.FTP_PROTOCOL != '' && secrets.FTP_PROTOCOL || 'ftps' }}
-          port: ${{ secrets.FTP_PORT != '' && secrets.FTP_PORT || 21 }}
+          protocol: ${{ steps.resolve.outputs.ftp_protocol }}
+          port: ${{ steps.resolve.outputs.ftp_port }}
           local-dir: dist/
           exclude: |
             **/.git*
@@ -88,5 +189,15 @@ jobs:
             **/.vscode/**
 
       - name: Skip deploy (VPN/FTP unavailable)
-        if: steps.precheck.outputs.can_deploy != 'true'
-        run: echo "Deploy skipped because VPN/FTP is unavailable from this runner."
+        if: steps.resolve.outputs.can_start != 'true' || steps.precheck.outputs.can_deploy != 'true'
+        shell: bash
+        run: |
+          if [ "${{ steps.resolve.outputs.can_start }}" != "true" ]; then
+            echo "Deploy skipped: ${{ steps.resolve.outputs.skip_reason }}"
+          else
+            echo "Deploy skipped: ${{ steps.precheck.outputs.skip_reason }}"
+          fi
+
+      - name: Disconnect WireGuard VPN (optional)
+        if: always() && steps.resolve.outputs.can_start == 'true' && steps.resolve.outputs.use_wg == 'true'
+        run: sudo wg-quick down wg0 || true
