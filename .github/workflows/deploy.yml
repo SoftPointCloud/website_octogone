@@ -31,6 +31,7 @@ jobs:
         shell: bash
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
           FTP_PORT_SECRET: ${{ secrets.FTP_PORT }}
           FTP_PROTOCOL_SECRET: ${{ secrets.FTP_PROTOCOL }}
           WG_PRIVATE_KEY: ${{ secrets.WG_PRIVATE_KEY }}
@@ -45,8 +46,14 @@ jobs:
 
           ftp_port="${FTP_PORT_SECRET:-21}"
           ftp_protocol="${FTP_PROTOCOL_SECRET:-ftps}"
+          ftp_server_dir="${FTP_SERVER_DIR:-}"
+
+          if [ -n "${ftp_server_dir}" ] && [[ "${ftp_server_dir}" != */ ]]; then
+            ftp_server_dir="${ftp_server_dir}/"
+          fi
 
           echo "ftp_host=${FTP_SERVER}" >> "$GITHUB_OUTPUT"
+          echo "ftp_server_dir=${ftp_server_dir}" >> "$GITHUB_OUTPUT"
           echo "ftp_port=${ftp_port}" >> "$GITHUB_OUTPUT"
           echo "ftp_protocol=${ftp_protocol}" >> "$GITHUB_OUTPUT"
 
@@ -56,6 +63,10 @@ jobs:
           if [ -z "${FTP_SERVER}" ]; then
             can_start=false
             skip_reason="FTP_SERVER secret is missing."
+          fi
+          if [ -z "${ftp_server_dir}" ]; then
+            can_start=false
+            skip_reason="FTP_SERVER_DIR secret is missing."
           fi
 
           use_wg=false
@@ -208,7 +219,7 @@ jobs:
           server: ${{ steps.resolve.outputs.ftp_host }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          server-dir: ${{ steps.resolve.outputs.ftp_server_dir }}
           protocol: ${{ steps.resolve.outputs.ftp_protocol }}
           port: ${{ steps.resolve.outputs.ftp_port }}
           local-dir: dist/
