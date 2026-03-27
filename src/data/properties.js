@@ -6,13 +6,13 @@ const PROPERTIES = [
     name: "Rose Garden Marrakech",
     location: "Marrakech, Morocco",
     category: "Luxury Hotel & Spa",
-    rooms: "334 Rooms & Suites",
+    rooms: "207 Rooms & Suites",
     status: "Operating",
     website: "www.rosegardenmaroc.com",
     description:
       "A landmark luxury property in the heart of Marrakech, offering world-class hospitality with lush gardens, exceptional dining, and a premier spa experience. Managed by Octogone since inception, the Rose Garden has become a destination of choice for discerning travellers.",
     stats: [
-      { label: "Rooms", value: "334" },
+      { label: "Rooms", value: "207" },
       { label: "Rating", value: "5★" },
       { label: "Reviews", value: "3,300+" },
       { label: "Status", value: "Operating" },

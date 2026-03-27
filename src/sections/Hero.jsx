@@ -89,7 +89,7 @@ export default function Hero({ setCurrent }) {
       <div className="stats-bar fade-in-up-delay-3" style={{ position: "relative", zIndex: 2, marginTop: 80 }}>
         {[
           { value: "2", label: "Properties" },
-          { value: "334+", label: "Rooms Managed" },
+          { value: "200+", label: "Rooms Managed" },
           { value: "Morocco", label: "Market Focus" },
           { value: "2004", label: "Founded" },
         ].map((s, i) => (
