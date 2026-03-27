@@ -20,25 +20,57 @@ jobs:
   deploy:
     name: Build and deploy dist over FTP
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, vpn]
+    runs-on: [self-hosted]
     environment: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check VPN/FTP reachability
+        id: precheck
+        shell: bash
+        run: |
+          FTP_HOST="${{ secrets.FTP_SERVER }}"
+          FTP_PORT="${{ secrets.FTP_PORT != '' && secrets.FTP_PORT || 21 }}"
+
+          if [ -z "$FTP_HOST" ]; then
+            echo "FTP_SERVER secret is missing. Skipping deploy."
+            echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if python - <<PY
+          import socket
+          host = "${FTP_HOST}"
+          port = int("${FTP_PORT}")
+          sock = socket.create_connection((host, port), timeout=8)
+          sock.close()
+          print(f"Reachable: {host}:{port}")
+          PY
+          then
+            echo "can_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "VPN/FTP is not reachable from runner. Skipping deploy."
+            echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node.js
+        if: steps.precheck.outputs.can_deploy == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies
+        if: steps.precheck.outputs.can_deploy == 'true'
         run: npm ci
 
       - name: Build Vite production bundle
+        if: steps.precheck.outputs.can_deploy == 'true'
         run: npm run build
 
       - name: Deploy dist to hosting
+        if: steps.precheck.outputs.can_deploy == 'true'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -54,3 +86,7 @@ jobs:
             **/node_modules/**
             **/.idea/**
             **/.vscode/**
+
+      - name: Skip deploy (VPN/FTP unavailable)
+        if: steps.precheck.outputs.can_deploy != 'true'
+        run: echo "Deploy skipped because VPN/FTP is unavailable from this runner."
