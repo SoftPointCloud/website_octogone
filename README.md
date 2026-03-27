@@ -26,7 +26,7 @@ Create one environment in GitHub:
 
 - Push to `main` -> build + deploy to production
 - Manual deploy -> run Actions workflow **Deploy website (main only)** from `main`
-- Runner label requirement -> self-hosted runner with label `self-hosted`
+- Runner type -> GitHub-hosted runner (`ubuntu-latest`)
 - Vite deploy mode -> uploads `dist/` only (not full source code)
 - If VPN/FTP is unreachable from runner, workflow skips deploy automatically
 
