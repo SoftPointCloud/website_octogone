@@ -24,7 +24,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check VPN/FTP reachability
         id: precheck
@@ -56,7 +56,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.precheck.outputs.can_deploy == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
